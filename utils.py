@@ -91,22 +91,9 @@ def getSegmentationArr( path , nClasses ,  width , height  ):
 
 
 def imageSegmentationGenerator(images_path, segs_path, batch_size, n_classes, input_height, input_width):
-	print((images_path, segs_path, batch_size, n_classes, input_height, input_width))
-	print("ijsajidjsaid")
-	print("EOQ")
-	print("2")
-
 	assert images_path[-1] == '/'
 	assert segs_path[-1] == '/'
 	
-	print((images_path, segs_path, batch_size, n_classes, input_height, input_width))
-	
-	print("ijsajidjsaid")
-	print("EOQ")
-
-
-
-
 	images = glob.glob( images_path + "*.jpg"  ) + glob.glob( images_path + "*.png"  ) +  glob.glob( images_path + "*.jpeg"  )
 	images.sort()
 	segmentations  = glob.glob( segs_path + "*.jpg"  ) + glob.glob( segs_path + "*.png"  ) +  glob.glob( segs_path + "*.jpeg"  )
@@ -126,15 +113,13 @@ def imageSegmentationGenerator(images_path, segs_path, batch_size, n_classes, in
 			im , seg = next(zipped)
 			img, debug = getImageArr(im , input_width , input_height )
 			label, debug2 = getSegmentationArr( seg , n_classes , input_width , input_height )
-			print(img.shape, debug.shape)
 			X.append(img)
 			Y.append(label)
-		cv2.imshow("teste",np.asarray(debug).astype('uint8')/255.0)
-		cv2.waitKey(30)
-		cv2.imshow("teste2",np.asarray(debug2).astype('uint8')*255.0)
-		cv2.waitKey(30)
-
-		#yield np.array(X) , np.array(Y)
+		#cv2.imshow("teste",np.asarray(debug).astype('uint8')/255.0)
+		#cv2.waitKey(30)
+		#cv2.imshow("teste2",np.asarray(debug2).astype('uint8')*255.0)
+		#cv2.waitKey(30)
+		yield np.array(X) , np.array(Y)
 
 
 if __name__ == "__main__":
@@ -150,7 +135,6 @@ if __name__ == "__main__":
 	#parser.add_argument("--annotations", type = str  )
 	#parser.add_argument("--n_classes", type=int )
 	#args = parser.parse_args()
-	print("AHN?")
 	
 	images_path = "dataset/dataset1/images_prepped_test/"
 	segs_path = "dataset/dataset1/annotations_prepped_test/"
@@ -158,6 +142,6 @@ if __name__ == "__main__":
 	n_classes = 10
 	input_width = 480
 	input_height = 360
-	print("1: ",(images_path, segs_path, batch_size, n_classes, input_height, input_width))
+
 	imageSegmentationGenerator(images_path, segs_path, batch_size, n_classes, input_height, input_width)
 	
