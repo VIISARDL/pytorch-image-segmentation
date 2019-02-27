@@ -5,41 +5,6 @@ import random
 import argparse
 import itertools
 
-
-'''
-def imageSegmentationGenerator( images_path , segs_path ,  n_classes ):
-
-	assert images_path[-1] == '/'
-	assert segs_path[-1] == '/'
-
-	images = glob.glob( images_path + "*.jpg"  ) + glob.glob( images_path + "*.png"  ) +  glob.glob( images_path + "*.jpeg"  )
-	images.sort()
-	segmentations  = glob.glob( segs_path + "*.jpg"  ) + glob.glob( segs_path + "*.png"  ) +  glob.glob( segs_path + "*.jpeg"  )
-	segmentations.sort()
-
-	colors = [  ( random.randint(0,255),random.randint(0,255),random.randint(0,255)   ) for _ in range(n_classes)  ]
-
-	assert len( images ) == len(segmentations)
-
-	for im_fn , seg_fn in zip(images,segmentations):
-		assert(  im_fn.split('/')[-1] ==  seg_fn.split('/')[-1] )
-
-		img = cv2.imread( im_fn )
-		seg = cv2.imread( seg_fn )
-		print (np.unique( seg ))
-
-		seg_img = np.zeros_like( seg )
-
-		for c in range(n_classes):
-			seg_img[:,:,0] += ( (seg[:,:,0] == c )*( colors[c][0] )).astype('uint8')
-			seg_img[:,:,1] += ((seg[:,:,0] == c )*( colors[c][1] )).astype('uint8')
-			seg_img[:,:,2] += ((seg[:,:,0] == c )*( colors[c][2] )).astype('uint8')
-
-		cv2.imshow("img" , img )
-		cv2.imshow("seg_img" , seg_img )
-		cv2.waitKey()
-'''
-
 def getImageArr( path , width , height , imgNorm="sub_mean" , odering='channels_first' ):
 
 	try:
@@ -84,42 +49,60 @@ def getSegmentationArr( path , nClasses ,  width , height  ):
 		print (e)
 		
 	seg_labels = np.reshape(seg_labels, ( width*height , nClasses ))
-
-	print(seg_labels.shape)
-	exit(0)
 	return seg_labels,debug
-
 
 def imageSegmentationGenerator(images_path, segs_path, batch_size, n_classes, input_height, input_width):
 	assert images_path[-1] == '/'
 	assert segs_path[-1] == '/'
 	
+
 	images = glob.glob( images_path + "*.jpg"  ) + glob.glob( images_path + "*.png"  ) +  glob.glob( images_path + "*.jpeg"  )
 	images.sort()
 	segmentations  = glob.glob( segs_path + "*.jpg"  ) + glob.glob( segs_path + "*.png"  ) +  glob.glob( segs_path + "*.jpeg"  )
 	segmentations.sort()
-
+	
 	assert len( images ) == len(segmentations)
 	for im , seg in zip(images,segmentations):
 		assert(  im.split('/')[-1].split(".")[0] ==  seg.split('/')[-1].split(".")[0] )
-
-
+	
+	
 	zipped = itertools.cycle( zip(images,segmentations) )
 
+	
 	while True:
 		X = []
 		Y = []
-		for _ in range( batch_size) :
+		final_label = []
+		for i in range( batch_size):
 			im , seg = next(zipped)
 			img, debug = getImageArr(im , input_width , input_height )
 			label, debug2 = getSegmentationArr( seg , n_classes , input_width , input_height )
 			X.append(img)
 			Y.append(label)
+			final_label.append(np.argmax(np.array(Y)[i],axis=1))	
+			#print(np.array(Y))
+			#print(np.array(Y)[0][0])
+			#print(np.array(Y).shape)
+
+		
+		#print(np.array(X).shape , np.array(Y).shape)
+		#print("teste")
+
+
+
+		yield np.array(X) , np.array(final_label)
+	'''
 		#cv2.imshow("teste",np.asarray(debug).astype('uint8')/255.0)
 		#cv2.waitKey(30)
 		#cv2.imshow("teste2",np.asarray(debug2).astype('uint8')*255.0)
 		#cv2.waitKey(30)
-		yield np.array(X) , np.array(Y)
+
+		print(np.array(X).shape , np.array(Y).shape)
+		return 0
+		exit(0)
+
+		
+	'''
 
 
 if __name__ == "__main__":
@@ -142,6 +125,4 @@ if __name__ == "__main__":
 	n_classes = 10
 	input_width = 480
 	input_height = 360
-
 	imageSegmentationGenerator(images_path, segs_path, batch_size, n_classes, input_height, input_width)
-	

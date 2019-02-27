@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchvision
+import warnings
+warnings.filterwarnings("ignore")
 
 class Conv2dSame(torch.nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, bias=True, padding_layer=torch.nn.ReflectionPad2d):
@@ -17,9 +18,12 @@ class Conv2dSame(torch.nn.Module):
   
 
 class Unet(nn.Module):
-	def __init__(self, input_channels=3,n_classes=10, input_width=480, input_height=360):
+	def __init__(self, input_channels=3,input_width=480, input_height=360, n_classes=10):
 		super(Unet,self).__init__()
-		#inputs = Input((nChannels, input_height, input_width))
+		self.input_channels = input_channels
+		self.input_width = input_width
+		self.input_height = input_height
+		self.n_classes = n_classes
 
 		self.conv1 = Conv2dSame(input_channels, 32, kernel_size=3)
 		self.conv1_1 = Conv2dSame(32, 32, kernel_size=3)
@@ -36,6 +40,7 @@ class Unet(nn.Module):
 		self.pool = torch.nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
 		self.dropout = nn.Dropout(p=0.2)
 		self.upsampling = nn.Upsample(scale_factor=2, mode='bilinear')
+		self.softmax = nn.Softmax(dim=1)
 
 	def forward(self,x):
 		# Downsampling phase
@@ -67,21 +72,65 @@ class Unet(nn.Module):
 		conv5 = F.relu(self.conv5_5(conv5))
 
 		conv6 = F.relu(self.conv6(conv5))
-		output = conv6.view(-1,n_classes,input_width*input_height)
 
+		output = conv6.view(-1,self.n_classes,self.input_width*self.input_height,)		
+		output = self.softmax(output)
 		return output
 
 
 if __name__ == "__main__":
 	import numpy as np
-	
-	images_path = "dataset/dataset1/images_prepped_test/"
-	segs_path = "dataset/dataset1/annotations_prepped_test/"
 	batch_size = 1
-	n_classes = 10
+	n_channels = 3
 	input_width = 480
 	input_height = 360
-	nz = torch.Tensor(np.zeros((1,3,input_width,input_height)))
-	#print(nz.shape)
-	unet = Unet()
-	unet.forward(nz)
+	n_classes = 10
+	nz = torch.Tensor(np.zeros((batch_size,n_channels,input_width,input_height)))
+	uz = torch.ones(batch_size,input_width*input_height,dtype=torch.long)
+	model = Unet()
+	outputs = model.forward(nz)
+	
+	criterion = nn.CrossEntropyLoss()
+	learning_rate = 1e-4
+	optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+	
+	print(outputs.shape, uz.shape)
+
+
+	loss = criterion(outputs, uz)
+	loss.backward()
+
+	'''
+	for t in range(500):
+	    # Forward pass: compute predicted y by passing x to the model.
+	    y_pred = model(x)
+
+	    # Compute and print loss.
+	    loss = loss_fn(y_pred, y)
+	    print(t, loss.item())
+
+	    # Before the backward pass, use the optimizer object to zero all of the
+	    # gradients for the variables it will update (which are the learnable
+	    # weights of the model). This is because by default, gradients are
+	    # accumulated in buffers( i.e, not overwritten) whenever .backward()
+	    # is called. Checkout docs of torch.autograd.backward for more details.
+	    optimizer.zero_grad()
+
+	    # Backward pass: compute gradient of the loss with respect to model
+	    # parameters
+	    loss.backward()
+
+	    # Calling the step function on an Optimizer makes an update to its
+	    # parameters
+	    optimizer.step()
+
+	'''
+
+
+
+
+	'''
+	import hiddenlayer as hl
+	hl_graph = hl.build_graph(model, nz)
+	hl_graph.save("xxx", format="png")
+	'''
