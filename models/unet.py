@@ -39,7 +39,7 @@ class Unet(nn.Module):
 
 		self.pool = torch.nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
 		self.dropout = nn.Dropout(p=0.2)
-		self.upsampling = nn.Upsample(scale_factor=2, mode='bilinear')
+		self.upsampling = nn.Upsample(scale_factor=2, mode='bilinear',align_corners=True)
 		self.softmax = nn.Softmax(dim=1)
 
 	def forward(self,x):
@@ -73,7 +73,7 @@ class Unet(nn.Module):
 
 		conv6 = F.relu(self.conv6(conv5))
 
-		output = conv6.view(-1,self.n_classes,self.input_width*self.input_height,)		
+		output = conv6.view(-1,self.n_classes,self.input_width*self.input_height)		
 		output = self.softmax(output)
 		return output
 
