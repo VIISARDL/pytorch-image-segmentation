@@ -37,7 +37,8 @@ class Unet(nn.Module):
 		self.conv5_5 = Conv2dSame(32, 32, kernel_size=3)
 		self.conv6 = Conv2dSame(32, n_classes, kernel_size=1)
 
-		self.pool = torch.nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
+		self.pool1 = torch.nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
+		self.pool2 = torch.nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
 		self.dropout = nn.Dropout(p=0.2)
 		self.upsampling = nn.Upsample(scale_factor=2, mode='bilinear',align_corners=True)
 		self.softmax = nn.Softmax(dim=1)
@@ -47,12 +48,12 @@ class Unet(nn.Module):
 		conv1 = F.relu(self.conv1(x))
 		conv1 = self.dropout(conv1)
 		conv1 = F.relu(self.conv1_1(conv1))
-		pool1 = self.pool(conv1)
+		pool1 = self.pool1(conv1)
 		
 		conv2 = F.relu(self.conv2(pool1))
 		conv2 = self.dropout(conv2)
 		conv2 = F.relu(self.conv2_2(conv2))
-		pool2 = self.pool(conv2)
+		pool2 = self.pool2(conv2)
 
 		conv3 = F.relu(self.conv3(pool2))
 		conv3 = self.dropout(conv3)
