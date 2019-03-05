@@ -10,20 +10,20 @@ import random
 import argparse
 import itertools
 
-def getImageArr( path , width , height , imgNorm="sub_mean" , odering='channels_first' ):
+def getImageArr( path , width , height , imgNorm="divide" , odering='channels_first' ):
 
 	try:
 		img = cv2.imread(path, 1)
 		debug = img.copy()
-		if imgNorm == "sub_and_divide":
-			img = np.float32(cv2.resize(img, ( width , height ))) / 127.5 - 1
-		elif imgNorm == "sub_mean":
-			img = cv2.resize(img, ( width , height ))
-			img = img.astype(np.float32)
-			img[:,:,0] -= 103.939
-			img[:,:,1] -= 116.779
-			img[:,:,2] -= 123.68
-		elif imgNorm == "divide":
+		#if imgNorm == "sub_and_divide":
+		#	img = np.float32(cv2.resize(img, ( width , height ))) / 127.5 - 1
+		#elif imgNorm == "sub_mean":
+		#	img = cv2.resize(img, ( width , height ))
+		#	img = img.astype(np.float32)
+		#	img[:,:,0] -= 103.939
+		#	img[:,:,1] -= 116.779
+		#	img[:,:,2] -= 123.68
+		if imgNorm == "divide":
 			img = cv2.resize(img, ( width , height ))
 			img = img.astype(np.float32)
 			img = img/255.0
