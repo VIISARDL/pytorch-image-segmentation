@@ -9,10 +9,10 @@ class Ublock(torch.nn.Module):
 		super().__init__()
 		self.net = torch.nn.Sequential(
 			nn.Conv2d(in_channels, out_channels, kernel_size,padding=padding),
-			nn.BatchNorm2d(out_channels),
+			#nn.BatchNorm2d(out_channels),
 			nn.ReLU(inplace=True),
 			nn.Conv2d(out_channels, out_channels, kernel_size,padding=padding),
-			nn.BatchNorm2d(out_channels),
+			#nn.BatchNorm2d(out_channels),
 			nn.ReLU(inplace=True)
 		)
 	def forward(self, x):
@@ -72,7 +72,7 @@ class Unet(nn.Module):
 		self.up3 = UpSamplingPadding(128 + 128, 64)
 		self.up4 = UpSamplingPadding(128, 64)
 
-		self.outputconv = torch.nn.Conv2d(64, n_classes, kernel_size=1)	
+		self.outputconv = torch.nn.Conv2d(64, self.n_classes, kernel_size=1)	
 		
 	def forward(self,x):
 		# Downsampling phase

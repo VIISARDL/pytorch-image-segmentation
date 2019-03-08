@@ -4,7 +4,7 @@ from models.unet import Unet
 from models.segnet import Segnet
 import torch
 import numpy as np
-from utils import imageSegmentationGenerator
+#from utils import imageSegmentationGenerator
 import torch.nn as nn
 from dataset import MyCustomDataset
 import random
@@ -14,7 +14,7 @@ def argParser():
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--train_images", type=str, default="dataset/dataset1/images_prepped_train/")
 	parser.add_argument("--train_annotations", type=str, default="dataset/dataset1/annotations_prepped_train/")
-	parser.add_argument("--n_classes", type=int, default=10)
+	parser.add_argument("--n_classes", type=int, default=12)
 	parser.add_argument("--input_width", type=int , default=480)
 	parser.add_argument("--input_height", type=int , default=360)
 	parser.add_argument('--validate',action='store_false')
@@ -43,7 +43,7 @@ custom_dataloader = torch.utils.data.DataLoader(dataset=custom_dataset,
 
 
 
-total = np.zeros((10))
+total = np.zeros((12))
 for batch_idx, (data, target) in enumerate(custom_dataloader):
     # get the inputs
     data, target = data.to(device), target.to(device)
