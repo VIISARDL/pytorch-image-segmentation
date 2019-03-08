@@ -13,6 +13,8 @@ from unet import Unet
 from utils import get_ids, split_ids, split_train_val, get_imgs_and_masks, batch
 import lovasz_losses as L
 from torch.optim import lr_scheduler
+from dataset import MyCustomDataset
+
 
 
 def get_lr(optimizer):
@@ -37,6 +39,13 @@ def train_net(net,
 
 	iddataset = split_train_val(ids, val_percent)
 
+	images_path = "dataset/dataset1/images_prepped_train/"
+	segs_path = "dataset/dataset1/annotations_prepped_train/"
+	batch_size = 3
+	n_classes = 12
+	input_height = 360#int(200)
+	input_width = 480#int(200)
+	input_channels = 3
 
 
 
@@ -77,6 +86,8 @@ def train_net(net,
 						  0]
 
 
+	CAMVID_MEAN = [0.41189489566336, 0.4251328133025, 0.4326707089857]
+	CAMVID_STD = [0.27413549931506, 0.28506257482912, 0.28284674400252]
 
 	#weights = [0.21085201899788072, 0.23258652172267635, 0.009829274523160764, 0.316582147542638, 0.04486270372893329, 0.09724054521142396, 0.011729535649409628, 0.011268086461802402, 0.0586568555101423, 0.006392310651932587]
 	class_weights = torch.FloatTensor(weights).cuda()#1/torch.FloatTensor(weights).cuda()
@@ -84,9 +95,15 @@ def train_net(net,
 
 	#scheduler = lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.1)
 	#scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5, verbose=True)
-	scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.2, threshold=0.01, patience=5)#optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5, verbose=True)
+	scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.1, threshold=0.01, patience=5)#optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5, verbose=True)
 
-	
+
+
+	custom_dataset = MyCustomDataset(images_path=images_path, segs_path=segs_path, n_classes=n_classes, input_width=input_width,input_height=input_height)
+	custom_dataloader = torch.utils.data.DataLoader(dataset=custom_dataset,
+													batch_size=batch_size,
+													shuffle=True)
+
 
 
 	for epoch in range(epochs):
@@ -100,43 +117,36 @@ def train_net(net,
 
 		epoch_loss = 0
 
-		for i, b in enumerate(batch(train, batch_size)):
-			imgs = np.array([i[0] for i in b]).astype(np.float32)
-			true_masks = np.array([i[1] for i in b])
+		for batch_idx, (data, target) in enumerate(custom_dataloader):
 
-			imgs = torch.from_numpy(imgs)
-			true_masks = torch.from_numpy(true_masks)
+			data, target = data.cuda().float(), target.cuda()
 
-			if gpu:
-				imgs = imgs.cuda()
-				true_masks = true_masks.cuda()
+			
+			# forward + backward + optimize
+			masks_pred = net(data)
 
-			masks_pred = net(imgs)
+			#print(masks_pred.shape, target.shape)
 
-			#print(true_masks.max())
-			#exit(0)
-			#print(masks_pred.shape,true_masks.shape)
-			masks_probs_flat = masks_pred#.view(-1)
-			true_masks_flat = true_masks.long()#.view(-1)
-			#true_masks_flat.scatter_(1, true_masks_flat.view(-1,1),1);
+			loss = criterion(masks_pred,target)
 
-			#print(masks_probs_flat.shape,true_masks_flat.shape)
-			loss = criterion(masks_probs_flat, true_masks_flat)
-			#loss = L.lovasz_softmax(masks_probs_flat, true_masks_flat)
+			# print statistics
 			epoch_loss += loss.item()
 
-			print('{0:.4f} --- loss: {1:.6f} --- lr: '.format(i * batch_size / N_train, loss.item()), get_lr(optimizer))
+			#print('{0:.4f} --- loss: {1:.6f} --- lr: '.format(batch_idx * batch_size / len(custom_dataloader), loss.item()), get_lr(optimizer))
+			print("Epoch (%d/%d) -  Batch (%5d/%5d) loss: %.3f (lr=%f)" % (epoch + 1,epochs, batch_idx + 1, len(custom_dataloader), loss.item(), get_lr(optimizer)))
 
 			optimizer.zero_grad()
 			loss.backward()
 			optimizer.step()
 			
-		print('Epoch finished ! Loss: {}'.format(epoch_loss / i))
+
+		print('Epoch finished ! Loss: {}'.format(epoch_loss / batch_idx))
 		
 		#if 1:
 		val_dice = eval_net(net, val, gpu)
 		print('Validation Loss: {}'.format(val_dice))
 		scheduler.step(val_dice)
+		epoch_loss = 0
 		if save_cp:
 			torch.save(net.state_dict(),
 					   dir_checkpoint + 'CP{}.pth'.format(epoch + 1))

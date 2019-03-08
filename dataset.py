@@ -10,6 +10,9 @@ import random
 import argparse
 import itertools
 
+CAMVID_MEAN = [0.41189489566336, 0.4251328133025, 0.4326707089857]
+CAMVID_STD = [0.27413549931506, 0.28506257482912, 0.28284674400252]
+
 def getImageArr( path , width , height , imgNorm="divide" , odering='channels_first' ):
 
 	try:
@@ -27,6 +30,7 @@ def getImageArr( path , width , height , imgNorm="divide" , odering='channels_fi
 			img = cv2.resize(img, ( width , height ))
 			img = img.astype(np.float32)
 			img = img/255.0
+			img = (img-CAMVID_MEAN)/CAMVID_STD
 
 		if odering == 'channels_first':
 			img = np.rollaxis(img, 2, 0)
@@ -91,7 +95,7 @@ class MyCustomDataset(Dataset):
 		self.labels = np.array(Y)
 
 	def __getitem__(self, index):
-		return (self.imgs[index], self.labels[index])
+		return (self.imgs[index], self.labels[index].reshape(self.input_height,self.input_width))
 
 	def __len__(self):
 		return len(self.imgs)
