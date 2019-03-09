@@ -16,6 +16,8 @@ from torch.optim import lr_scheduler
 from dataset import MyCustomDataset
 from torch.utils.data.sampler import SubsetRandomSampler
 
+import albumentations as A
+
 
 def get_lr(optimizer):
 	for param_group in optimizer.param_groups:
@@ -37,16 +39,13 @@ def train_net(net,
 	input_height = 360#int(200)
 	input_width = 480#int(200)
 	input_channels = 3
-
-
-
 	
 	optimizer = optim.SGD(net.parameters(),
 						  lr=lr,
 						  momentum=0.99,
 						  weight_decay=0.0005)
 	
-	#optimizer = optim.Adam(net.parameters(), lr=0.005)
+	optimizer = optim.Adam(net.parameters())
 	#criterion = nn.BCELoss()
 	
 	weights = [0.58872014284134,
@@ -72,10 +71,13 @@ def train_net(net,
 
 	#scheduler = lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.1)
 	#scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5, verbose=True)
-	scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.01, threshold=0.01, patience=5)#optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5, verbose=True)
+	scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.01, threshold=0.01, patience=10)#optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5, verbose=True)
 
-	dataset = MyCustomDataset(images_path=images_path, segs_path=segs_path, n_classes=n_classes, input_width=input_width,input_height=input_height)
-	
+	aug = A.Compose([A.OneOf([A.RandomBrightnessContrast(p=0.2), A.VerticalFlip(p=0.2), A.RandomRotate90(p=0.2)]), A.HorizontalFlip(p=0.5)], p=1)
+
+
+	dataset = MyCustomDataset(images_path=images_path, segs_path=segs_path, n_classes=n_classes, input_width=input_width,input_height=input_height,transforms=aug)
+
 	shuffle_dataset = True
 	random_seed = 42
 

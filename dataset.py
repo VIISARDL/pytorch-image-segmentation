@@ -28,6 +28,13 @@ from torch import optim
 from eval import eval_net
 from unet import Unet
 
+import albumentations as A
+
+
+import numpy as np
+import cv2
+from matplotlib import pyplot as plt
+
 def getImageArr( path , width , height , imgNorm="divide" , odering='channels_first' ):
 
 	try:
@@ -97,9 +104,8 @@ class MyCustomDataset(Dataset):
 			#img, debug = getImageArr(img , input_width , input_height )
 			img, label = self.resize_crop_squared(img_path=img,seg_path=seg,scale=scale)			
 			Z.append(img)
-			X.append(np.transpose(self.normalize_std(img), axes=[2, 0, 1]))
+			X.append(self.normalize_std(img))
 			Y.append(label)
-
 
 		self.imgs = np.array(X)
 		self.imgs_original = np.array(Z)
@@ -108,7 +114,12 @@ class MyCustomDataset(Dataset):
 		self.input_height = self.labels[0].shape[0]
 
 	def __getitem__(self, index):
-		return (self.imgs[index], self.labels[index],self.imgs_original[index])
+		if(self.transforms is not None):
+			augmented = self.transforms(image=self.imgs[index], mask=self.labels[index])
+			augmented['image'] = np.rollaxis(augmented['image'],2,0)
+			return augmented['image'], augmented['mask'], self.imgs_original[index]
+		else:
+			return (np.rollaxis(self.imgs[index],2,0), self.labels[index],self.imgs_original[index])
 
 	def __len__(self):
 		return len(self.imgs)
@@ -145,6 +156,12 @@ class MyCustomDataset(Dataset):
 	def normalize_std(self,x):
 		return ((x / 255.0)-CAMVID_MEAN)/CAMVID_STD
 
+
+
+
+
+
+
 if __name__ == "__main__":	
 	images_path = "dataset/dataset1/images_prepped_train/"
 	segs_path = "dataset/dataset1/annotations_prepped_train/"
@@ -152,18 +169,67 @@ if __name__ == "__main__":
 	n_classes = 10
 	input_width = 480
 	input_height = 360
+	scale=0.5
 	custom_dataset = MyCustomDataset(images_path=images_path, segs_path=segs_path, n_classes=n_classes, input_width=input_width,input_height=input_height)
 
-	a,b = custom_dataset.__getitem__(5)
+	a,b, original = custom_dataset.__getitem__(5)
 	print(a.shape,b.shape)
-
-	net = Unet(input_channels=3,input_width=480, input_height=360, n_classes=12)#Unet(n_channels=3, n_classes=1)
-	net.cuda()
+	a=np.rollaxis(a,0,3)
+	print(a.shape,b.shape)
+	
 
 	'''
-	train_net(net=net,
-		  epochs=2,
-		  batch_size=4,
-		  lr=0.1,
-		  img_scale=0.5,dataset=custom_dataset)
+	### HORIZONTAL FLIP WORKING
+	aug = HorizontalFlip(p=1)
+	augmented = aug(image=a,mask=b)
+	image_h_flipped = augmented['image']
+	mask_h_flipped = augmented['mask']
+	cv2.imshow("original", original/255)
+	cv2.imshow("original_mask", b)
+	cv2.imshow("flipped", image_h_flipped)
+	cv2.imshow("mask flipped", mask_h_flipped)
+	
+	cv2.waitKey(0)
+	exit(0)
+	
 	'''
+	'''
+	### HORIZONTAL FLIP WORKING
+	aug = Compose([HorizontalFlip(p=0.8),              
+              RandomRotate90(p=0.3)])
+	#aug = HorizontalFlip(p=1)
+	augmented = aug(image=a,mask=b)
+	image_h_flipped = augmented['image']
+	mask_h_flipped = augmented['mask']
+	cv2.imshow("original", original/255)
+	cv2.imshow("original_mask", b)
+	cv2.imshow("flipped", image_h_flipped)
+	cv2.imshow("mask flipped", mask_h_flipped)
+	
+	cv2.waitKey(0)
+	exit(0)
+	'''
+
+	aug = A.Compose([
+	    A.RandomBrightnessContrast(p=0.3),    
+	    A.RandomGamma(p=0.3),
+	    A.MotionBlur(blur_limit=20, p=0.3),
+    	A.GaussNoise(p=0.3),
+    	A.ElasticTransform(p=0.3),
+    	A.ShiftScaleRotate(),
+	], p=1)
+
+
+
+	augmented = aug(image=a,mask=b)
+	image_h_flipped = augmented['image']
+	mask_h_flipped = augmented['mask']
+	cv2.imshow("original", original/255)
+	cv2.imshow("original_mask", b)
+	cv2.imshow("flipped", image_h_flipped)
+	cv2.imshow("mask flipped", mask_h_flipped)
+	
+	print(original.shape,b.shape)
+
+	cv2.waitKey(0)
+	exit(0)
