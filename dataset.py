@@ -91,21 +91,24 @@ class MyCustomDataset(Dataset):
 
 		X = []
 		Y = []
+		Z = []
 		for img,seg in (zip(images,segmentations)):
 			assert(  img.split('/')[-1].split(".")[0] ==  seg.split('/')[-1].split(".")[0])
 			#img, debug = getImageArr(img , input_width , input_height )
 			img, label = self.resize_crop_squared(img_path=img,seg_path=seg,scale=scale)			
-			X.append(self.normalize(img))
+			Z.append(img)
+			X.append(np.transpose(self.normalize_std(img), axes=[2, 0, 1]))
 			Y.append(label)
 
 
 		self.imgs = np.array(X)
+		self.imgs_original = np.array(Z)
 		self.labels = np.array(Y)		
 		self.input_width = self.labels[0].shape[1]
 		self.input_height = self.labels[0].shape[0]
 
 	def __getitem__(self, index):
-		return (self.imgs[index], self.labels[index])
+		return (self.imgs[index], self.labels[index],self.imgs_original[index])
 
 	def __len__(self):
 		return len(self.imgs)
@@ -136,12 +139,11 @@ class MyCustomDataset(Dataset):
 			label = label[:, :h]
 		else:
 			img = img[:, -h:]
-			label = label[:, -h:]
-		img = np.transpose(img, axes=[2, 0, 1])
+			label = label[:, -h:]	
 		return img, label
 
-	def normalize(self,x):
-		return x / 255
+	def normalize_std(self,x):
+		return ((x / 255.0)-CAMVID_MEAN)/CAMVID_STD
 
 if __name__ == "__main__":	
 	images_path = "dataset/dataset1/images_prepped_train/"

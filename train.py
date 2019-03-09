@@ -72,7 +72,7 @@ def train_net(net,
 
 	#scheduler = lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.1)
 	#scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5, verbose=True)
-	scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.1, threshold=0.01, patience=5)#optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5, verbose=True)
+	scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.01, threshold=0.01, patience=5)#optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5, verbose=True)
 
 	dataset = MyCustomDataset(images_path=images_path, segs_path=segs_path, n_classes=n_classes, input_width=input_width,input_height=input_height)
 	
@@ -107,8 +107,8 @@ def train_net(net,
 		Validation size: {}
 		Checkpoints: {}
 		CUDA: {}
-	'''.format(epochs, batch_size, lr, len(train_loader),
-			   len(validation_loader), str(save_cp), str(gpu)))
+	'''.format(epochs, batch_size, lr, len(train_loader)*batch_size,
+			   len(validation_loader)*batch_size, str(save_cp), str(gpu)))
 
 	N_train = len(train_loader)
 
@@ -121,7 +121,7 @@ def train_net(net,
 		net.train()
 		epoch_loss = 0
 
-		for batch_idx, (data, target) in enumerate(train_loader):
+		for batch_idx, (data, target, _) in enumerate(train_loader):
 
 			data, target = data.cuda().float(), target.cuda().long()
 

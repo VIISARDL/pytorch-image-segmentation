@@ -27,7 +27,18 @@ custom_dataloader_eval = torch.utils.data.DataLoader(dataset=custom_dataset_eval
 use_cuda = False
 device = torch.device("cuda" if use_cuda else "cpu")
 model = Unet(input_channels=input_channels,input_width=input_width, input_height=input_height, n_classes=n_classes).to(device)
-colors = [  ( random.randint(0,255),random.randint(0,255),random.randint(0,255)   ) for _ in range(n_classes+1)  ]
+colors = [(128, 128, 128),
+(128, 0, 0),
+(192, 192, 128),
+(128, 64, 128),
+(0, 0, 192),
+(128, 128, 0),
+(192, 128, 128),
+(64, 64, 128),
+(64, 0, 128),
+(64, 64, 0),
+(0, 128, 192),
+(0, 0, 0)]
 
 
 import os
@@ -45,7 +56,7 @@ for model_path in model_list:
 	model.load_state_dict(torch.load(model_path))
 	model.eval() 
 
-	for batch_idx, (data, target) in enumerate(custom_dataloader_eval):
+	for batch_idx, (data, target, original) in enumerate(custom_dataloader_eval):
 		# get the inputs
 		data, target = data.to(device).float(), target.to(device)
 
@@ -62,18 +73,16 @@ for model_path in model_list:
 		seg_img = np.zeros((input_height,input_width,input_channels))
 
 		values, indices = torch.max(predicts,0)
-
 		
 		indices = indices.cpu().detach().numpy()
 
-		for c in range(n_classes+1):
+		for c in range(n_classes):
 			seg_img[:,:,0] += ((indices == np.float32(c))*( colors[int(c)][0] ))
 			seg_img[:,:,1] += ((indices == np.float32(c))*( colors[int(c)][1] ))
 			seg_img[:,:,2] += ((indices == np.float32(c))*( colors[int(c)][2] ))
-		
-		cv2.imshow("data" , data)
-		cv2.imshow("seg_img" , seg_img)#seg_img) 
-		cv2.imshow("seg_img1" , seg_img/255)#seg_img) 
+
+		cv2.imshow("data" , original.view(input_height,input_width,-1).cpu().detach().numpy()/255)
+		cv2.imshow("seg_img" , seg_img/255)
 		cv2.waitKey(30)
 	
 	break

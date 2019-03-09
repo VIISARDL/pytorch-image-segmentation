@@ -8,7 +8,7 @@ def eval_net(net, dataset, gpu=False):
     """Evaluation without the densecrf with the dice coefficient"""
     net.eval()
     tot = 0
-    for batch_idx, (data, target) in enumerate(dataset):
+    for batch_idx, (data, target, _) in enumerate(dataset):
 
         data, true_mask = data.cuda().float(), target.cuda().long()
 
