@@ -52,11 +52,12 @@ for aux in temp:
 
 
 for model_path in model_list:
-	model_path = './model_second.pth'
+	model_path = './model_stable.pth'
 	model.load_state_dict(torch.load(model_path))
 	model.eval() 
 
 	for batch_idx, (data, target, original) in enumerate(custom_dataloader_eval):
+		print(batch_idx, len(custom_dataloader_eval))
 		# get the inputs
 		data, target = data.to(device).float(), target.to(device)
 
@@ -81,8 +82,20 @@ for model_path in model_list:
 			seg_img[:,:,1] += ((indices == np.float32(c))*( colors[int(c)][1] ))
 			seg_img[:,:,2] += ((indices == np.float32(c))*( colors[int(c)][2] ))
 
-		cv2.imshow("data" , original.view(input_height,input_width,-1).cpu().detach().numpy()/255)
-		cv2.imshow("seg_img" , seg_img/255)
-		cv2.waitKey(30)
-	
+
+		res = np.zeros((input_height,input_width*2,input_channels))
+		res[:,:input_width,:] = original.view(input_height,input_width,-1).cpu().detach().numpy()/255
+		res[:,input_width:,:] = seg_img/255
+
+		#cv2.imshow("data" , original.view(input_height,input_width,-1).cpu().detach().numpy()/255)
+		#cv2.imshow("seg_img" , seg_img/255)
+		#cv2.waitKey(30)
+		
+		#cv2.imshow("Full", res)
+		#cv2.waitKey(30)
+
+		cv2.imwrite("./output/" + str(batch_idx) + ".png", res*255)
+
+
+
 	break
