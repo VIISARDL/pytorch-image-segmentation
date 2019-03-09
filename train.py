@@ -14,7 +14,7 @@ from utils import get_ids, split_ids, split_train_val, get_imgs_and_masks, batch
 import lovasz_losses as L
 from torch.optim import lr_scheduler
 from dataset import MyCustomDataset
-
+from torch.utils.data.sampler import SubsetRandomSampler
 
 
 def get_lr(optimizer):
@@ -25,43 +25,20 @@ def train_net(net,
 			  epochs=100,
 			  batch_size=4,
 			  lr=0.1,
-			  val_percent=0.05,
+			  val_percent=0.1,
 			  save_cp=True,
 			  gpu=False,
 			  img_scale=0.5):
 
-	dir_img = 'data/train/'
-	dir_mask = 'data/train_masks/'
-	dir_checkpoint = 'checkpoints/'
-
-	ids = get_ids(dir_img)
-	ids = split_ids(ids)
-
-	iddataset = split_train_val(ids, val_percent)
-
 	images_path = "dataset/dataset1/images_prepped_train/"
 	segs_path = "dataset/dataset1/annotations_prepped_train/"
-	batch_size = 3
+	batch_size = 3*4
 	n_classes = 12
 	input_height = 360#int(200)
 	input_width = 480#int(200)
 	input_channels = 3
 
 
-
-	print('''
-	Starting training:
-		Epochs: {}
-		Batch size: {}
-		Learning rate: {}
-		Training size: {}
-		Validation size: {}
-		Checkpoints: {}
-		CUDA: {}
-	'''.format(epochs, batch_size, lr, len(iddataset['train']),
-			   len(iddataset['val']), str(save_cp), str(gpu)))
-
-	N_train = len(iddataset['train'])
 
 	
 	optimizer = optim.SGD(net.parameters(),
@@ -97,12 +74,44 @@ def train_net(net,
 	#scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5, verbose=True)
 	scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.1, threshold=0.01, patience=5)#optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5, verbose=True)
 
+	dataset = MyCustomDataset(images_path=images_path, segs_path=segs_path, n_classes=n_classes, input_width=input_width,input_height=input_height)
+	
+	shuffle_dataset = True
+	random_seed = 42
+
+	# Creating data indices for training and validation splits:
+	dataset_size = len(dataset)
+	indices = list(range(dataset_size))
+	split = int(np.floor(val_percent * dataset_size))
+	if shuffle_dataset :
+		np.random.seed(random_seed)
+		np.random.shuffle(indices)
+	train_indices, val_indices = indices[split:], indices[:split]
+
+	# Creating PT data samplers and loaders:
+	train_sampler = SubsetRandomSampler(train_indices)
+	valid_sampler = SubsetRandomSampler(val_indices)
+
+	train_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, 
+												sampler=train_sampler)
+	validation_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size,
+												sampler=valid_sampler)
 
 
-	custom_dataset = MyCustomDataset(images_path=images_path, segs_path=segs_path, n_classes=n_classes, input_width=input_width,input_height=input_height)
-	custom_dataloader = torch.utils.data.DataLoader(dataset=custom_dataset,
-													batch_size=batch_size,
-													shuffle=True)
+	print('''
+	Starting training:
+		Epochs: {}
+		Batch size: {}
+		Learning rate: {}
+		Training size: {}
+		Validation size: {}
+		Checkpoints: {}
+		CUDA: {}
+	'''.format(epochs, batch_size, lr, len(train_loader),
+			   len(validation_loader), str(save_cp), str(gpu)))
+
+	N_train = len(train_loader)
+
 
 
 
@@ -110,16 +119,11 @@ def train_net(net,
 		print('Starting epoch {}/{}.'.format(epoch + 1, epochs))
 		
 		net.train()
-
-		# reset the generators
-		train = get_imgs_and_masks(iddataset['train'], dir_img, dir_mask, img_scale)
-		val = get_imgs_and_masks(iddataset['val'], dir_img, dir_mask, img_scale)
-
 		epoch_loss = 0
 
-		for batch_idx, (data, target) in enumerate(custom_dataloader):
+		for batch_idx, (data, target) in enumerate(train_loader):
 
-			data, target = data.cuda().float(), target.cuda()
+			data, target = data.cuda().float(), target.cuda().long()
 
 			
 			# forward + backward + optimize
@@ -133,7 +137,7 @@ def train_net(net,
 			epoch_loss += loss.item()
 
 			#print('{0:.4f} --- loss: {1:.6f} --- lr: '.format(batch_idx * batch_size / len(custom_dataloader), loss.item()), get_lr(optimizer))
-			print("Epoch (%d/%d) -  Batch (%5d/%5d) loss: %.3f (lr=%f)" % (epoch + 1,epochs, batch_idx + 1, len(custom_dataloader), loss.item(), get_lr(optimizer)))
+			print("Epoch (%d/%d) -  Batch (%5d/%5d) loss: %.3f (lr=%f)" % (epoch + 1,epochs, batch_idx + 1, len(train_loader), loss.item(), get_lr(optimizer)))
 
 			optimizer.zero_grad()
 			loss.backward()
@@ -143,13 +147,13 @@ def train_net(net,
 		print('Epoch finished ! Loss: {}'.format(epoch_loss / batch_idx))
 		
 		#if 1:
-		val_dice = eval_net(net, val, gpu)
+		val_dice = eval_net(net, validation_loader, gpu)
 		print('Validation Loss: {}'.format(val_dice))
 		scheduler.step(val_dice)
 		epoch_loss = 0
 		if save_cp:
 			torch.save(net.state_dict(),
-					   dir_checkpoint + 'CP{}.pth'.format(epoch + 1))
+					    'CP{}.pth'.format(epoch + 1))
 			print('Checkpoint {} saved !'.format(epoch + 1))
 
 		

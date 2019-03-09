@@ -8,19 +8,12 @@ def eval_net(net, dataset, gpu=False):
     """Evaluation without the densecrf with the dice coefficient"""
     net.eval()
     tot = 0
-    for i, b in enumerate(dataset):
-        img = b[0]
-        true_mask = b[1]
+    for batch_idx, (data, target) in enumerate(dataset):
 
-        img = torch.from_numpy(img).unsqueeze(0)
-        true_mask = torch.from_numpy(true_mask).unsqueeze(0)
+        data, true_mask = data.cuda().float(), target.cuda().long()
 
-        if gpu:
-            img = img.cuda()
-            true_mask = true_mask.cuda()
-
-        mask_pred = net(img)[0]
+        mask_pred = net(data)
         mask_pred = (mask_pred > 0.5).float()
-
-        tot += dice_coeff(mask_pred, true_mask).item()
-    return tot / (i + 1)
+        mask_pred = mask_pred.argmax(dim=1)
+        tot += dice_coeff(mask_pred.float(), true_mask.float()).item()
+    return tot / (batch_idx + 1)

@@ -13,19 +13,26 @@ import itertools
 CAMVID_MEAN = [0.41189489566336, 0.4251328133025, 0.4326707089857]
 CAMVID_STD = [0.27413549931506, 0.28506257482912, 0.28284674400252]
 
+from torch.utils.data.sampler import SubsetRandomSampler
+
+import sys
+import os
+from optparse import OptionParser
+import numpy as np
+
+import torch
+import torch.backends.cudnn as cudnn
+import torch.nn as nn
+from torch import optim
+
+from eval import eval_net
+from unet import Unet
+
 def getImageArr( path , width , height , imgNorm="divide" , odering='channels_first' ):
 
 	try:
 		img = cv2.imread(path, 1)
 		debug = img.copy()
-		#if imgNorm == "sub_and_divide":
-		#	img = np.float32(cv2.resize(img, ( width , height ))) / 127.5 - 1
-		#elif imgNorm == "sub_mean":
-		#	img = cv2.resize(img, ( width , height ))
-		#	img = img.astype(np.float32)
-		#	img[:,:,0] -= 103.939
-		#	img[:,:,1] -= 116.779
-		#	img[:,:,2] -= 123.68
 		if imgNorm == "divide":
 			img = cv2.resize(img, ( width , height ))
 			img = img.astype(np.float32)
@@ -63,7 +70,7 @@ def getSegmentationArr( path , nClasses ,  width , height  ):
 		
 class MyCustomDataset(Dataset):
 	def __init__(self, images_path="dataset/dataset1/images_prepped_train/", segs_path="dataset/dataset1/annotations_prepped_train/",
-				 n_classes=10, input_width=480,input_height=360, transforms=None):
+				 n_classes=10, input_width=480,input_height=360, transforms=None,scale=0.5):
 		
 		self.images_path = images_path
 		self.segs_path = segs_path
@@ -86,21 +93,55 @@ class MyCustomDataset(Dataset):
 		Y = []
 		for img,seg in (zip(images,segmentations)):
 			assert(  img.split('/')[-1].split(".")[0] ==  seg.split('/')[-1].split(".")[0])
-			img, debug = getImageArr(img , input_width , input_height )
-			label, debug2 = getSegmentationArr( seg , n_classes , input_width , input_height )
-			X.append(img)
-			Y.append(np.argmax(np.array(label),axis=1))
+			#img, debug = getImageArr(img , input_width , input_height )
+			img, label = self.resize_crop_squared(img_path=img,seg_path=seg,scale=scale)			
+			X.append(self.normalize(img))
+			Y.append(label)
+
 
 		self.imgs = np.array(X)
-		self.labels = np.array(Y)
+		self.labels = np.array(Y)		
+		self.input_width = self.labels[0].shape[1]
+		self.input_height = self.labels[0].shape[0]
 
 	def __getitem__(self, index):
-		return (self.imgs[index], self.labels[index].reshape(self.input_height,self.input_width))
+		return (self.imgs[index], self.labels[index])
 
 	def __len__(self):
 		return len(self.imgs)
 
+	def resize_and_crop(self, pilimg, scale=0.5, final_height=None):
+		w = pilimg.size[0]
+		h = pilimg.size[1]
+		newW = int(w * scale)
+		newH = int(h * scale)
 
+		if not final_height:
+			diff = 0
+		else:
+			diff = newH - final_height
+
+		img = pilimg.resize((newW, newH))
+		img = img.crop((0, diff // 2, newW, newH - diff // 2))
+		return np.array(img, dtype=np.float32)
+
+	def resize_crop_squared(self, img_path, seg_path, scale=0.5):
+		img = self.resize_and_crop(Image.open(img_path), scale=scale)
+		label = self.resize_and_crop(Image.open(seg_path), scale=scale)
+		
+		h = img.shape[0]
+		pos = 1 if random.random() > 0.5 else 0
+		if pos == 0:
+			img = img[:, :h]
+			label = label[:, :h]
+		else:
+			img = img[:, -h:]
+			label = label[:, -h:]
+		img = np.transpose(img, axes=[2, 0, 1])
+		return img, label
+
+	def normalize(self,x):
+		return x / 255
 
 if __name__ == "__main__":	
 	images_path = "dataset/dataset1/images_prepped_train/"
@@ -113,3 +154,14 @@ if __name__ == "__main__":
 
 	a,b = custom_dataset.__getitem__(5)
 	print(a.shape,b.shape)
+
+	net = Unet(input_channels=3,input_width=480, input_height=360, n_classes=12)#Unet(n_channels=3, n_classes=1)
+	net.cuda()
+
+	'''
+	train_net(net=net,
+		  epochs=2,
+		  batch_size=4,
+		  lr=0.1,
+		  img_scale=0.5,dataset=custom_dataset)
+	'''
