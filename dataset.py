@@ -14,66 +14,20 @@ CAMVID_MEAN = [0.41189489566336, 0.4251328133025, 0.4326707089857]
 CAMVID_STD = [0.27413549931506, 0.28506257482912, 0.28284674400252]
 
 from torch.utils.data.sampler import SubsetRandomSampler
-
 import sys
 import os
 from optparse import OptionParser
 import numpy as np
-
 import torch
 import torch.backends.cudnn as cudnn
 import torch.nn as nn
 from torch import optim
-
 from eval import eval_net
 from unet import Unet
-
 import albumentations as A
-
-
 import numpy as np
 import cv2
 from matplotlib import pyplot as plt
-
-def getImageArr( path , width , height , imgNorm="divide" , odering='channels_first' ):
-
-	try:
-		img = cv2.imread(path, 1)
-		debug = img.copy()
-		if imgNorm == "divide":
-			img = cv2.resize(img, ( width , height ))
-			img = img.astype(np.float32)
-			img = img/255.0
-			img = (img-CAMVID_MEAN)/CAMVID_STD
-
-		if odering == 'channels_first':
-			img = np.rollaxis(img, 2, 0)
-		return img, debug
-	except Exception as e:
-		print (path , e)
-		img = np.zeros((  height , width  , 3 ))
-		if odering == 'channels_first':
-			img = np.rollaxis(img, 2, 0)
-		return img, debug
-
-
-def getSegmentationArr( path , nClasses ,  width , height  ):
-
-	seg_labels = np.zeros((  height , width  , nClasses ))
-	try:
-		img = cv2.imread(path, 1)
-		img = cv2.resize(img, ( width , height ))
-		img = img[:, : , 0]
-		debug = img.copy()
-		for c in range(nClasses):
-			seg_labels[: , : , c ] = (img == c ).astype(int)
-
-	except Exception as e:
-		print (e)
-		
-	seg_labels = np.reshape(seg_labels, ( width*height , nClasses ))
-	return seg_labels,debug
-
 		
 class MyCustomDataset(Dataset):
 	def __init__(self, images_path="dataset/dataset1/images_prepped_train/", segs_path="dataset/dataset1/annotations_prepped_train/",
@@ -101,7 +55,6 @@ class MyCustomDataset(Dataset):
 		Z = []
 		for img,seg in (zip(images,segmentations)):
 			assert(  img.split('/')[-1].split(".")[0] ==  seg.split('/')[-1].split(".")[0])
-			#img, debug = getImageArr(img , input_width , input_height )
 			img, label = self.resize_crop_squared(img_path=img,seg_path=seg,scale=scale)			
 			Z.append(img)
 			X.append(self.normalize_std(img))
